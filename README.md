@@ -22,6 +22,7 @@ const config = perMinute(2)
 // Create a throttle that allows 5 executions per minute
 const throttle = new Throttle(lock, config, key);
 
+
 // Example execution - email a user
 async function sendEmail(to: string, subject: string) {
   console.log(`Sending email to ${to}: ${subject}`);
@@ -39,6 +40,18 @@ async function handleEmailRequest(to: string, subject: string) {
     console.log('Email was throttled');
   }
 }
+```
+
+## Running Tests
+
+Spin up a test environment with redis and nats servers using docker compose:
+```
+docker compose -f tests/docker-compose.yml up -d
+```
+
+and then run the tests:
+```
+npm run test
 ```
 
 ## License
