@@ -20,6 +20,8 @@ import { IDistributedLock } from 'johnny-locke';
 const config = perMinute(2)
 
 // Create a throttle that allows 5 executions per minute
+// the lock should be configured with a timeout matching the throttle:
+// lockTimeoutMs = config.intervalMs / config.executions
 const throttle = new Throttle(lock, config, key);
 
 

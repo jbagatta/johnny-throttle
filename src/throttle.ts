@@ -13,15 +13,21 @@ export class Throttle {
     private readonly config: ThrottleConfiguration,
     private readonly throttleKey: string
   ) { 
-    this.validateConfig();
+    if (config.executions < 1) {
+      throw new Error("Executions must be at least 1");
+    }
+    if (config.intervalMs < 1) {
+      throw new Error("Interval must be at least 1ms");
+    }
   }
 
   async throttle(fn: () => Promise<any>): Promise<boolean> {
     let execute = false
 
+    const lockTimeoutMs = this.config.intervalMs / this.config.executions;
     await this.lock.withLock<ThrottleMetadata>(
       this.throttleKey, 
-      this.config.intervalMs, 
+      lockTimeoutMs, 
       async (throttleMetadata) => {
         this.validateAgainstExistingConfig(throttleMetadata?.config);
         const now = Date.now();
@@ -48,15 +54,6 @@ export class Throttle {
       await fn();
     }
     return execute;
-  }
-
-  validateConfig() {
-    if (this.config.executions < 1) {
-      throw new Error("Executions must be at least 1");
-    }
-    if (this.config.intervalMs < 1) {
-      throw new Error("Interval must be at least 1ms");
-    }
   }
 
   validateAgainstExistingConfig(existingConfig?: ThrottleConfiguration) {
