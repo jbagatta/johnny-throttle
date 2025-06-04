@@ -121,7 +121,7 @@ describe('Throttle', () => {
         .toThrow('Interval must be at least 1ms');
     });
 
-    it('should throw error for configuration mismatch', async () => {
+    it('should throw error for configuration mismatch across throttle instances', async () => {
       const throttle2 = new Throttle(lock, perSecond(3), key);
 
       await throttle.throttle(() => Promise.resolve());
@@ -154,10 +154,12 @@ describe('Throttle', () => {
 
       const longRunningPromise = throttle.throttle(longRunningFn);
       const quickResult = await throttle.throttle(quickFn);
+      const quickResult2 = await throttle.throttle(quickFn);
 
       await longRunningPromise;
 
       expect(quickResult).toBe(true);
+      expect(quickResult2).toBe(false);
       expect(longRunningFn).toHaveBeenCalledTimes(1);
       expect(quickFn).toHaveBeenCalledTimes(1);
     });
