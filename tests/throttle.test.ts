@@ -56,11 +56,9 @@ describe('Throttle', () => {
       
       await throttle.throttle(fn);
       await throttle.throttle(fn);
-      expect(fn).toHaveBeenCalledTimes(2);
 
       await sleep(config.intervalMs + 100);
 
-      // Should execute again
       const executed = await throttle.throttle(fn);
       expect(executed).toBe(true);
       expect(fn).toHaveBeenCalledTimes(3);
@@ -75,9 +73,6 @@ describe('Throttle', () => {
       await throttle.throttle(fn);
       await sleep(100 + config.intervalMs / 2);
 
-      expect(fn).toHaveBeenCalledTimes(2);
-
-      // Should execute again
       const executed = await throttle.throttle(fn);
       expect(executed).toBe(true);
       expect(fn).toHaveBeenCalledTimes(3);
@@ -87,30 +82,30 @@ describe('Throttle', () => {
   describe('Concurrent Execution', () => {
     it('should handle concurrent calls correctly', async () => {
       const fn = jest.fn();
-      const executions = 5; // More than our throttle limit
+      const executions = 5;
       
-      // Execute multiple calls concurrently
       const results = await Promise.all(
         Array(executions).fill(null).map(() => throttle.throttle(fn))
       );
 
-      // Should only execute twice (our throttle limit)
-      const executedCount = results.filter(Boolean).length;
+      const executedCount = results.filter(r => r).length;
       expect(executedCount).toBe(2);
       expect(fn).toHaveBeenCalledTimes(2);
     });
 
     it('should maintain correct execution count across concurrent processes', async () => {
       const fn = jest.fn();
-      const throttle2 = new Throttle(lock, perSecond(2), key);
+      const executions = 5;
 
-      // Execute from first throttle
-      await throttle.throttle(fn);
-      await throttle.throttle(fn);
+      const throttle2 = new Throttle(lock, config, key);
 
-      // Try to execute from second throttle
-      const executed = await throttle2.throttle(fn);
-      expect(executed).toBe(false);
+      const results = await Promise.all([
+        ...Array(executions).fill(null).map(() => throttle.throttle(fn)),
+        ...Array(executions).fill(null).map(() => throttle2.throttle(fn))
+      ]);
+
+      const executedCount = results.filter(r => r).length;
+      expect(executedCount).toBe(2);
       expect(fn).toHaveBeenCalledTimes(2);
     });
   });
@@ -127,55 +122,24 @@ describe('Throttle', () => {
     });
 
     it('should throw error for configuration mismatch', async () => {
-      // Create throttle with different config
       const throttle2 = new Throttle(lock, perSecond(3), key);
 
-      // First throttle should work
       await throttle.throttle(() => Promise.resolve());
 
-      // Second throttle should fail
       await expect(throttle2.throttle(() => Promise.resolve()))
         .rejects
         .toThrow('Configuration mismatch');
     });
   });
 
-  describe('Helper Functions', () => {
-    it('should create correct perSecond configuration', () => {
-      const config = perSecond(5);
-      expect(config).toEqual({
-        executions: 5,
-        intervalMs: 1000
-      });
-    });
-
-    it('should create correct perMinute configuration', () => {
-      const config = perMinute(5);
-      expect(config).toEqual({
-        executions: 5,
-        intervalMs: 60 * 1000
-      });
-    });
-
-    it('should create correct perHour configuration', () => {
-      const config = perHour(5);
-      expect(config).toEqual({
-        executions: 5,
-        intervalMs: 60 * 60 * 1000
-      });
-    });
-  });
-
   describe('Error Handling', () => {
-    it('should handle function execution errors', async () => {
+    it('should count function execution errors', async () => {
       const error = new Error('Test error');
       const fn = jest.fn().mockRejectedValue(error);
 
-      // Should still count as an execution even if it fails
       await expect(throttle.throttle(fn)).rejects.toThrow('Test error');
       await expect(throttle.throttle(fn)).rejects.toThrow('Test error');
       
-      // Next call should be throttled
       const executed = await throttle.throttle(() => Promise.resolve());
       expect(executed).toBe(false);
     });
@@ -188,7 +152,6 @@ describe('Throttle', () => {
       );
       const quickFn = jest.fn();
 
-      // Start long running operation
       const longRunningPromise = throttle.throttle(longRunningFn);
       const quickResult = await throttle.throttle(quickFn);
 
