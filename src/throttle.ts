@@ -7,41 +7,47 @@ interface ThrottleMetadata {
   cursor: number;
 }
 
-export class Throttle {
-  constructor(
-    private readonly lock: IDistributedLock,
-    private readonly throttleKey: string, 
-    private readonly config: ThrottleConfiguration
-  ) { 
+export function createThrottler(
+  lock: IDistributedLock,
+  throttleKey: string, 
+  config: ThrottleConfiguration
+) { 
     if (config.executions < 1) {
       throw new Error("Executions must be at least 1");
     }
     if (config.intervalMs < 1) {
       throw new Error("Interval must be at least 1ms");
     }
+
+    return async (fn: () => Promise<any>) => await throttle(lock, throttleKey, config, fn)
   }
 
-  async throttle(fn: () => Promise<any>): Promise<boolean> {
+  async function throttle(
+    lock: IDistributedLock,
+    throttleKey: string, 
+    config: ThrottleConfiguration,
+    fn: () => Promise<any>
+  ): Promise<boolean> {
     let execute = false
 
-    const lockTimeoutMs = this.config.intervalMs / this.config.executions;
-    await this.lock.withLock<ThrottleMetadata>(
-      this.throttleKey, 
+    const lockTimeoutMs = config.intervalMs / config.executions;
+    await lock.withLock<ThrottleMetadata>(
+      throttleKey, 
       lockTimeoutMs, 
       async (throttleMetadata) => {
-        this.validateAgainstExistingConfig(throttleMetadata?.config);
+        validateAgainstExistingConfig(config, throttleMetadata?.config);
         const now = Date.now();
 
         const newMetadata = {
-          executionTimestamps: throttleMetadata?.executionTimestamps ?? new Array(this.config.executions).fill(0),
+          executionTimestamps: throttleMetadata?.executionTimestamps ?? new Array(config.executions).fill(0),
           cursor: throttleMetadata?.cursor ?? 0,
-          config: this.config,
+          config: config,
         };
 
         const bufferPos = newMetadata.executionTimestamps[newMetadata.cursor];
-        if (now - bufferPos > this.config.intervalMs) {
+        if (now - bufferPos > config.intervalMs) {
           newMetadata.executionTimestamps[newMetadata.cursor] = now;
-          newMetadata.cursor = (newMetadata.cursor + 1) % this.config.executions;
+          newMetadata.cursor = (newMetadata.cursor + 1) % config.executions;
 
           execute = true;
         }
@@ -56,14 +62,14 @@ export class Throttle {
     return execute;
   }
 
-  validateAgainstExistingConfig(existingConfig?: ThrottleConfiguration) {
+  function validateAgainstExistingConfig(config: ThrottleConfiguration, existingConfig?: ThrottleConfiguration) {
     if (existingConfig) {
-      if (this.config.executions !== existingConfig.executions) {
-        throw new Error(`Configuration mismatch: requested ${this.config.executions} executions, but existing config has ${existingConfig.executions}`);
+      if (config.executions !== existingConfig.executions) {
+        throw new Error(`Configuration mismatch: requested ${config.executions} executions, but existing config has ${existingConfig.executions}`);
       }
-      if (this.config.intervalMs !== existingConfig.intervalMs) {
-        throw new Error(`Configuration mismatch: requested ${this.config.intervalMs}ms interval, but existing config has ${existingConfig.intervalMs}ms`);
+      if (config.intervalMs !== existingConfig.intervalMs) {
+        throw new Error(`Configuration mismatch: requested ${config.intervalMs}ms interval, but existing config has ${existingConfig.intervalMs}ms`);
       }
     }
-  }
+  
 }

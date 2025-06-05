@@ -1,39 +1,50 @@
 import { IDistributedLock } from "@jbagatta/johnny-locke";
 
-export class Debounce {
-  constructor(
-    private readonly lock: IDistributedLock,
-    private readonly throttleKey: string, 
-    private readonly intervalMs: number
+export function createDebouncer(
+    lock: IDistributedLock,
+    throttleKey: string, 
+    intervalMs: number
   ) { 
     if (intervalMs < 1) {
       throw new Error("intervalMs must be at least 1");
     }
+
+    return (fn: () => Promise<any>) => debounce(lock, throttleKey, intervalMs, fn)
   }
 
-  debounce(fn: () => Promise<any>): void {
+  function debounce(
+    lock: IDistributedLock,
+    throttleKey: string, 
+    intervalMs: number,
+    fn: () => Promise<any>
+  ): void {
     const id = crypto.randomUUID()
 
-    this.lock.withLock<string>(this.throttleKey, this.intervalMs, async () => id)
+    lock.withLock<string>(throttleKey, intervalMs, async () => id)
       .then(() => {
         setTimeout(async () => {
           try {
-            await this.checkDebounce.bind(this)(id, fn)
+            await checkDebounce(lock, throttleKey, intervalMs, id, fn)
           }
           catch {
-            console.error(`Error checking debounce key ${this.throttleKey}`)
+            console.error(`Error checking debounce key ${throttleKey}`)
           }
-        }, this.intervalMs)
+        }, intervalMs)
       })
       .catch(console.error)
   }
 
-  private async checkDebounce(id: string, fn: () => Promise<any>) {
+  async function checkDebounce(
+    lock: IDistributedLock,
+    throttleKey: string, 
+    intervalMs: number,
+    id: string, fn: () => Promise<any>
+  ) {
     let execute = false
 
-    await this.lock.withLock<string>(
-      this.throttleKey, 
-      this.intervalMs, 
+    await lock.withLock<string>(
+      throttleKey, 
+      intervalMs, 
       async (executor) => {
         execute = executor === id
         return executor ?? id
@@ -44,4 +55,3 @@ export class Debounce {
       await fn();
     }
   }
-}

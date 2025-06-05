@@ -1,22 +1,22 @@
 import { ThrottleConfiguration } from './config';
 import { IDistributedLock, RedisDistributedLock, JetstreamDistributedLock } from '@jbagatta/johnny-locke';
-import { Debounce } from './debounce';
-import { Throttle } from './throttle';
+import { createDebouncer } from './debounce';
+import { createThrottler } from './throttle';
 
 export * from './config';
 
 declare module "@jbagatta/johnny-locke" {
     export interface IDistributedLock {
         createDebouncer(key: string, intervalMs: number): (fn: () => Promise<any>) => void
-        createThrottler(key: string, config: ThrottleConfiguration): (fn: () => Promise<any>) => void
+        createThrottler(key: string, config: ThrottleConfiguration): (fn: () => Promise<any>) => Promise<boolean>
     }
     export interface RedisDistributedLock {
         createDebouncer(key: string, intervalMs: number): (fn: () => Promise<any>) => void
-        createThrottler(key: string, config: ThrottleConfiguration): (fn: () => Promise<any>) => void
+        createThrottler(key: string, config: ThrottleConfiguration): (fn: () => Promise<any>) => Promise<boolean>
     }
     export interface JetstreamDistributedLock {
         createDebouncer(key: string, intervalMs: number): (fn: () => Promise<any>) => void
-        createThrottler(key: string, config: ThrottleConfiguration): (fn: () => Promise<any>) => void
+        createThrottler(key: string, config: ThrottleConfiguration): (fn: () => Promise<any>) => Promise<boolean>
     }
 }
 
@@ -26,25 +26,19 @@ JetstreamDistributedLock.prototype.createDebouncer = natsDebouncer
 JetstreamDistributedLock.prototype.createThrottler = natsThrottler
 
 function redisDebouncer(this: RedisDistributedLock, key: string, intervalMs: number) {
-    const debouncer = new Debounce(this, key, intervalMs)
-
-    return debouncer.debounce
+    return createDebouncer(this, key, intervalMs)
 }
 
 function redisThrottler(this: RedisDistributedLock, key: string, config: ThrottleConfiguration) {
-    const throttler = new Throttle(this, key, config)
-
-    return throttler.throttle
+    return createThrottler(this, key, config)
 }
 
 function natsDebouncer(this: JetstreamDistributedLock, key: string, intervalMs: number) {
-    const debouncer = new Debounce(this, key, intervalMs)
-
-    return debouncer.debounce
+    return createDebouncer(this, key, intervalMs)
 }
 
 function natsThrottler(this: JetstreamDistributedLock, key: string, config: ThrottleConfiguration) {
-    const throttler = new Throttle(this, key, config)
-
-    return throttler.throttle
+    return createThrottler(this, key, config)
 }
+
+export { IDistributedLock, RedisDistributedLock, JetstreamDistributedLock }

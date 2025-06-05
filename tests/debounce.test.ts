@@ -1,5 +1,4 @@
-import { Debounce } from '../src/debounce';
-import { IDistributedLock, RedisDistributedLock } from '@jbagatta/johnny-locke';
+import { IDistributedLock, RedisDistributedLock } from '../src/index';
 import { Redis } from 'ioredis';
 
 const getUniqueKey = () => `test-${crypto.randomUUID()}`;
@@ -7,7 +6,6 @@ const getUniqueKey = () => `test-${crypto.randomUUID()}`;
 describe('Debounce', () => {
   let redis: Redis;
   let lock: IDistributedLock;
-  let debounce: Debounce;
   let key: string;
   const waitMs = 1000;
 
@@ -20,7 +18,6 @@ describe('Debounce', () => {
     });
 
     key = getUniqueKey();
-    debounce = new Debounce(lock, key, waitMs);
   });
 
   afterEach(async () => {
@@ -29,8 +26,10 @@ describe('Debounce', () => {
   });
 
   it('should execute after debounce interval', async () => {
+    const debounce = lock.createDebouncer(key, waitMs)
+
     const fn = jest.fn();
-    debounce.debounce(fn);
+    debounce(fn);
 
     await sleep(waitMs / 2)
     expect(fn).not.toHaveBeenCalled();
@@ -41,18 +40,20 @@ describe('Debounce', () => {
   });
 
   it('should debounce prior calls', async () => {
+    const debounce = lock.createDebouncer(key, waitMs)
+    
     const fn1 = jest.fn();
-    debounce.debounce(fn1);
+    debounce(fn1);
 
     await sleep(waitMs - 200)
 
     const fn2 = jest.fn();
-    debounce.debounce(fn2);
+    debounce(fn2);
 
     await sleep(waitMs - 200)
 
     const fn3 = jest.fn();
-    debounce.debounce(fn3);
+    debounce(fn3);
 
     await sleep(waitMs + 100)
 
