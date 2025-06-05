@@ -1,6 +1,7 @@
-import { Throttle, perSecond, perMinute, perHour } from '../src/index';
-import { IDistributedLock, RedisDistributedLock } from 'johnny-locke';
+import { Throttle } from '../src/throttle';
+import { IDistributedLock, RedisDistributedLock } from '@jbagatta/johnny-locke';
 import { Redis } from 'ioredis';
+import { perSecond } from '../src/config';
 
 const getUniqueKey = () => `test-${crypto.randomUUID()}`;
 
@@ -15,12 +16,12 @@ describe('Throttle', () => {
     redis = new Redis('redis://localhost:6379');
     lock = await RedisDistributedLock.create(redis, {
         namespace: 'test',
-        lockTimeoutMs: config.intervalMs / config.executions,
+        defaultLockDurationMs: config.intervalMs / config.executions,
         objectExpiryMs: 60_000
     });
 
     key = getUniqueKey();
-    throttle = new Throttle(lock, config, key);
+    throttle = new Throttle(lock, key, config);
   });
 
   afterEach(async () => {
@@ -97,7 +98,7 @@ describe('Throttle', () => {
       const fn = jest.fn();
       const executions = 5;
 
-      const throttle2 = new Throttle(lock, config, key);
+      const throttle2 = new Throttle(lock, key, config);
 
       const results = await Promise.all([
         ...Array(executions).fill(null).map(() => throttle.throttle(fn)),
@@ -112,17 +113,17 @@ describe('Throttle', () => {
 
   describe('Configuration', () => {
     it('should throw error for invalid executions', () => {
-      expect(() => new Throttle(lock, { executions: 0, intervalMs: 1000 }, key))
+      expect(() => new Throttle(lock, key, { executions: 0, intervalMs: 1000 }))
         .toThrow('Executions must be at least 1');
     });
 
     it('should throw error for invalid interval', () => {
-      expect(() => new Throttle(lock, { executions: 1, intervalMs: 0 }, key))
+      expect(() => new Throttle(lock, key, { executions: 1, intervalMs: 0 }))
         .toThrow('Interval must be at least 1ms');
     });
 
     it('should throw error for configuration mismatch across throttle instances', async () => {
-      const throttle2 = new Throttle(lock, perSecond(3), key);
+      const throttle2 = new Throttle(lock, key, perSecond(3));
 
       await throttle.throttle(() => Promise.resolve());
 

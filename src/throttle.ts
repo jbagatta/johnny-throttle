@@ -1,4 +1,4 @@
-import { IDistributedLock } from "johnny-locke";
+import { IDistributedLock } from "@jbagatta/johnny-locke";
 import { ThrottleConfiguration } from "./config";
 
 interface ThrottleMetadata {
@@ -9,9 +9,9 @@ interface ThrottleMetadata {
 
 export class Throttle {
   constructor(
-    private readonly lock: IDistributedLock, 
-    private readonly config: ThrottleConfiguration,
-    private readonly throttleKey: string
+    private readonly lock: IDistributedLock,
+    private readonly throttleKey: string, 
+    private readonly config: ThrottleConfiguration
   ) { 
     if (config.executions < 1) {
       throw new Error("Executions must be at least 1");

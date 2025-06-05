@@ -15,12 +15,15 @@
     "prepare": "npm run build"
   },
   "keywords": [
-    "distributed-throttle"
+    "throttle",
+    "debounce",
+    "johnny-locke",
+    "johnny-throttle"
   ],
   "author": "John Bagatta",
   "license": "MIT",
   "dependencies": {
-    "johnny-locke": "^0.1.0"
+    "@jbagatta/johnny-locke": "^0.5.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",

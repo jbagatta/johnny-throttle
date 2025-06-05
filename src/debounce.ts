@@ -1,10 +1,10 @@
-import { IDistributedLock } from "johnny-locke";
+import { IDistributedLock } from "@jbagatta/johnny-locke";
 
 export class Debounce {
   constructor(
-    private readonly lock: IDistributedLock, 
-    private readonly intervalMs: number,
-    private readonly throttleKey: string
+    private readonly lock: IDistributedLock,
+    private readonly throttleKey: string, 
+    private readonly intervalMs: number
   ) { 
     if (intervalMs < 1) {
       throw new Error("intervalMs must be at least 1");
