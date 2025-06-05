@@ -1,8 +1,12 @@
 # Johnny Throttle
 
-A lightweight TypeScript utility library for throttling function calls across a distributed system. Built on top of `johnny-locke` [distributed locking](https://github.com/jbagatta/johnny-locke).
+A lightweight TypeScript utility library for throttling or debouncing function calls across a distributed system. 
+
+Built on top of [JohnnyLocke](https://github.com/jbagatta/johnny-locke) distributed locking, the `IDistributedLock` interface is augmented with `createThrottle` and `createDebounce` functions.
 
 ## Implementation
+
+### Throttle
 
 JohnnyThrottle makes use of a basic ring buffer store inside a distributed lock. The ring buffer is sized to the number of requested executions, and the value in each buffer position is an execution time of the function, in incrementing order of execution (with respect to the sliding buffer window). Simply put, if the current time is greater than the throttle window plus the timestamp of the earliest known execution, the function will execute.
 
@@ -10,20 +14,14 @@ The ring buffer is updated (and the lock is released) *before* the function is e
 
 The throttle requires a stable associated key that is computable across all processes in the distributed environment for a given execution.
 
+### Debounce
+
+The debounce functions similarly, but with the goal of debouncing a function call across processes. A debouncing process will set it's own execution identifier within the distributed lock, then check that lock's value after the debounce timeout. If the identifier remains the same (i.e. no other process has evicted a prior ID and stored its own), then the debounced function is called. Otherwise, it's a no-op.
+
 ## Usage
 
 ```typescript
-import { Throttle, perMinute } from 'johnny-throttle';
-import { IDistributedLock } from 'johnny-locke';
-
-// allow 2 executions per minute (perSecond() and perHour() supported as well)
-const config = perMinute(2)
-
-// Create a throttle that allows 5 executions per minute
-// the lock should be configured with a timeout matching the throttle:
-// lockTimeoutMs = config.intervalMs / config.executions
-const throttle = new Throttle(lock, config, key);
-
+import { IDistributedLock, perMinute } from '@jbagatta/johnny-throttle';
 
 // Example execution - email a user
 async function sendEmail(to: string, subject: string) {
@@ -31,8 +29,12 @@ async function sendEmail(to: string, subject: string) {
   // ... email sending logic ...
 }
 
-async function handleEmailRequest(to: string, subject: string) {
-  const executed = await throttle.throttle(async () => {
+// Create a throttle 
+// allow 2 executions per minute (perSecond() and perHour() supported as well)
+const config = perMinute(2)
+const throttle = lock.createThrottler(key, config);
+async function throttleEmailRequest(to: string, subject: string) {
+  const executed = await throttle(async () => {
     await sendEmail(to, subject);
   });
 
@@ -41,6 +43,14 @@ async function handleEmailRequest(to: string, subject: string) {
   } else {
     console.log('Email was throttled');
   }
+}
+
+// Create a debouncer on a 30s interval
+const debounce = lock.createDebouncer(key, 30_000);
+async function debounceEmailRequest(to: string, subject: string) {
+  debounce(async () => {
+    await sendEmail(to, subject);
+  });
 }
 ```
 
