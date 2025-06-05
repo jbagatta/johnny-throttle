@@ -29,8 +29,7 @@ async function sendEmail(to: string, subject: string) {
   // ... email sending logic ...
 }
 
-// Create a throttle 
-// allow 2 executions per minute (perSecond() and perHour() supported as well)
+// Create a throttle, allow 2 executions per minute
 const config = perMinute(2)
 const throttle = lock.createThrottler(key, config);
 async function throttleEmailRequest(to: string, subject: string) {
