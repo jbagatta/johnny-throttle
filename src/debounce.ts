@@ -36,12 +36,12 @@ export class Debounce {
       this.intervalMs, 
       async (executor) => {
         execute = executor === id
-        return id
+        return executor ?? id
       }
     )
 
-      if (execute) {
-        await fn();
-      }
+    if (execute) {
+      await fn();
+    }
   }
 }
